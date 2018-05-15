@@ -157,12 +157,6 @@ public class RTPEncodingDesc
     private final RTPEncodingDesc[] dependencyEncodings;
 
     /**
-     * A boolean flag that indicates whether or not this instance is streaming
-     * or if it's suspended.
-     */
-    private boolean active = false;
-
-    /**
      * The last "stable" bitrate (in bps) for this instance.
      */
     private long lastStableBitrateBps;
@@ -437,38 +431,20 @@ public class RTPEncodingDesc
      */
     public boolean isActive()
     {
-        return active;
-    }
-
-    /**
-     * Gets a boolean value indicating whether or not this instance is
-     * streaming.
-     *
-     * @param performTimeoutCheck  when true, it requires fresh data and not
-     * just the active property to be set.
-     *
-     * @return true if this instance is streaming, false otherwise.
-     */
-    public boolean isActive(boolean performTimeoutCheck)
-    {
-        if (active && performTimeoutCheck)
+        if (lastReceivedFrame == null)
         {
-            if (lastReceivedFrame == null)
-            {
-                return false;
-            }
-            else
-            {
-                long timeSinceLastReceivedFrameMs = System.currentTimeMillis()
-                    - lastReceivedFrame.getReceivedMs();
-
-                return timeSinceLastReceivedFrameMs
-                    <= MediaStreamTrackDesc.SUSPENSION_THRESHOLD_MS;
-            }
+            return false;
         }
         else
         {
+            long timeSinceLastReceivedFrameMs = System.currentTimeMillis()
+                - lastReceivedFrame.getReceivedMs();
+
+            boolean active = timeSinceLastReceivedFrameMs
+                <= MediaStreamTrackDesc.SUSPENSION_THRESHOLD_MS;
+
             return active;
+            // TODO check if the higher layer is streaming.
         }
     }
 
@@ -483,7 +459,6 @@ public class RTPEncodingDesc
             ",secondary_ssrcs=" + secondarySsrcs +
             ",temporal_id=" + tid +
             ",spatial_id=" + sid +
-            ",active=" + active +
             ",last_stable_bitrate_bps=" + lastStableBitrateBps;
     }
 
@@ -597,18 +572,6 @@ public class RTPEncodingDesc
     }
 
     /**
-     * Gets a boolean flag that indicates whether or not this instance is
-     * streaming or if it's suspended.
-     *
-     * @param active true if this {@link RTPEncodingDesc} is active, otherwise
-     * false.
-     */
-    void setActive(boolean active)
-    {
-        this.active = active;
-    }
-
-    /**
      *
      * @param pkt
      * @param nowMs
@@ -670,8 +633,6 @@ public class RTPEncodingDesc
                 applyFrameBoundsHeuristics(floorEntry.getValue(), frame);
             }
         }
-
-        track.update(pkt, frame, isPacketOfNewFrame, nowMs);
     }
 
 
